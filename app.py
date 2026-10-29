@@ -1,83 +1,36 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error
-from sklearn.preprocessing import LabelEncoder
 import plotly.express as px
 
-@st.cache_data
-def load_data():
-    try:
-        
-        df = pd.read_csv('DataCoSupplyChainDataset.csv', encoding='latin-1')
-        
-       
-        df['Delay_Duration'] = df['Days for shipping (real)'] - df['Days for shipment (scheduled)']
-        
-        
-        cols_to_keep = {
-            'Shipping Mode': 'Shipping_Mode',
-            'Order City': 'Destination',
-            'Customer City': 'Origin',
-            'Order Region': 'Region',
-            'Delay_Duration': 'Delay_Duration'
-        }
-        
-        existing_cols = [c for c in cols_to_keep.keys() if c in df.columns]
-        df = df[existing_cols].rename(columns=cols_to_keep)
-        
-        df = df.dropna()
-        
-        return df
-        
-    except FileNotFoundError:
-        st.error("CRITICAL ERROR: 'DataCoSupplyChainDataset.csv' not found.")
-        st.info("Please download the dataset from Kaggle and place it in the same folder as app.py")
-        st.stop()
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
-        st.stop()
-
-df = load_data()
-
+from supply_data import find_dataset, load_shipments, train_model
 
 st.set_page_config(page_title="Logistics AI Dashboard", layout="wide")
-st.title("🚚 Real-World Supply Chain: Delay Prediction")
-st.markdown("A Machine Learning dashboard predicting shipping delays using the **DataCo Smart Supply Chain** dataset.")
 
 
-
-le_origin = LabelEncoder()
-le_dest = LabelEncoder()
-le_mode = LabelEncoder()
-
-df['Origin_Code'] = le_origin.fit_transform(df['Origin'])
-df['Dest_Code'] = le_dest.fit_transform(df['Destination'])
-df['Mode_Code'] = le_mode.fit_transform(df['Shipping_Mode'])
-
-# Features (X) and Target (y)
-X = df[['Origin_Code', 'Dest_Code', 'Mode_Code']]
-y = df['Delay_Duration']
-
-# Train/Test Split
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-# Model Training
-model = RandomForestRegressor(n_estimators=50, random_state=42)
-model.fit(X_train, y_train)
-
-# Metrics
-preds = model.predict(X_test)
-mae = mean_absolute_error(y_test, preds)
+@st.cache_data
+def load_data(path, modified_ns, size):
+    # File metadata invalidates cached data after a local dataset change.
+    return load_shipments(path)
 
 
+cached_train_model = st.cache_resource(train_model)
+
+st.title("🚚 Supply Chain: Delivery Delay Prediction")
+st.markdown("Explore shipment history and estimate delivery delays using the DataCo dataset.")
+
+try:
+    path = find_dataset()
+    info = path.stat()
+    df = load_data(str(path), info.st_mtime_ns, info.st_size)
+    model, le_origin, le_dest, le_mode, mae = cached_train_model(df)
+except (OSError, ValueError, pd.errors.ParserError) as error:
+    st.error(str(error))
+    st.stop()
 
 col1, col2, col3 = st.columns(3)
 col1.metric("Total Orders Analyzed", f"{len(df):,}")
 col2.metric("Avg Global Delay", f"{df['Delay_Duration'].mean():.2f} Days")
-col3.metric("Model Accuracy (MAE)", f"{mae:.2f} Days", help="Average error in days.")
+col3.metric("Mean Absolute Error (MAE)", f"{mae:.2f} Days", help="Average error in days.")
 
 tab1, tab2 = st.tabs(["📊 Analytics Overview", "🤖 Live Prediction Tool"])
 
