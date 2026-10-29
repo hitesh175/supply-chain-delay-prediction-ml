@@ -1,89 +1,41 @@
-# Logistics-and-Supply-Chain-Delivery-Delay-Prediction-Dashboard
-The dashboard allows stakeholders to input shipment details via a sidebar and immediately receive a risk assessment score and estimated delay duration in the main view, enabling proactive decision-making.
+# Supply Chain Delivery Delay Prediction
 
-Here is a professional `README.md` file for your **Logistics & Supply Chain** project. You can create a new file named `README.md` in your project folder and paste this content directly into it.
+A Streamlit prototype combining shipment analytics with a Random Forest regression model.
 
-#  Supply Chain: Delivery Delay Prediction System
+The app estimates delivery delay in days and groups predictions into on-time/early, minor-delay, and significant-delay messages.
 
-![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.28-red)
-![Scikit-Learn](https://img.shields.io/badge/ML-RandomForest-orange)
+![Dashboard example](Screenshot%202026-01-30%20120900.png)
 
-##  Overview
+## How it works
 
-This project is an end-to-end Machine Learning application designed to optimize logistics operations. It utilizes historical supply chain data to predict the likelihood and duration of shipping delays.
+- Target: actual shipping days minus scheduled shipping days.
+- Features: encoded customer city, order city, and shipping mode.
+- Evaluation: an 80/20 random split with a fixed seed.
+- Metric: mean absolute error (MAE), measured in days.
+- Interface: historical charts, regional comparisons, and interactive predictions.
 
-**The dashboard allows stakeholders to input shipment details via a sidebar and immediately receive a risk assessment score and estimated delay duration in the main view, enabling proactive decision-making.**
+The source labels Customer City as “Origin” and Order City as “Destination”. These fields require domain validation before treating them as physical shipment endpoints. MAE is an error measure, although the current interface labels it “Model Accuracy”.
 
-##  Features
-
-*  Live Prediction Tool: Interactive sidebar for stakeholders to input route details (Origin, Destination, Mode) and get instant delay predictions.
-*  Analytics Dashboard: Visualizes historical performance, including average delays by shipping mode and regional bottlenecks.
-*  Risk Assessment: Automatically categorizes shipments as "Safe," "Minor Risk," or "High Risk" based on predicted delay duration.
-*  Real-World Data: Built using the **DataCo Smart Supply Chain** dataset to model realistic logistics scenarios.
-
-##  Tech Stack
-
-* **Language:** Python
-* **Web Framework:** Streamlit
-* **Machine Learning:** Scikit-Learn (Random Forest Regressor)
-* **Data Manipulation:** Pandas, NumPy
-* **Visualization:** Plotly Express
-
-##  How to Run Locally
-
-### 1. Prerequisites
-Ensure you have Python installed. It is recommended to use a virtual environment.
-
-### 2. Installation
-Install the required dependencies:
-```bash
-pip install pandas numpy scikit-learn streamlit plotly
-
-```
-
-### 3. Dataset Setup
-
-This project requires the **DataCo Smart Supply Chain for Big Data Analysis** dataset.
-
-1. Download the dataset from [Kaggle](https://www.kaggle.com/datasets/shashwatwork/dataco-smart-supply-chain-for-big-data-analysis).
-2. Rename the file to `DataCoSupplyChainDataset.csv`.
-3. Place it in the root directory of the project (same folder as `app.py`).
-
-### 4. Run the Application
-
-Launch the dashboard using Streamlit:
+## Run locally
 
 ```bash
-streamlit run app.py
-
+python -m venv .venv
+python -m pip install pandas numpy scikit-learn streamlit plotly
+python -m streamlit run app.py
 ```
 
-##  Project Structure
+Activate the environment before installation. Before launching, place a CSV named `DataCoSupplyChainDataset.csv` beside `app.py`. It must include shipping-day, city, mode, and region fields used by the source.
 
-```text
-├── app.py                       # Main application script (ETL, Modeling, Dashboard)
-├── DataCoSupplyChainDataset.csv # Dataset (Required)
-├── README.md                    # Project Documentation
-└── requirements.txt             # List of dependencies
+A dataset reference is linked in the [DataCo dataset listing](https://www.kaggle.com/datasets/shashwatwork/dataco-smart-supply-chain-for-big-data-analysis). Follow its applicable access and usage terms.
 
-```
+The repository includes `compressed_data.csv.gz`, but the app currently reads the uncompressed CSV name above. Inspect the archive's schema before extracting it for use.
 
-##  Model Logic
+## Project material
 
-The application uses a **Random Forest Regressor** to predict the `Delay_Duration` target variable.
+- [app.py](app.py): loading, feature encoding, training, charts, and predictions.
+- [output.pdf](output.pdf) and [Output2.pdf](Output2.pdf): saved output documents.
+- Repository screenshots: interface examples.
 
-* **Target Calculation:** `Real Shipping Days` - `Scheduled Shipping Days`.
-* **Features Used:** Origin City, Destination City, and Shipping Mode.
-* **Encoding:** Label Encoding is used to convert categorical city names into numerical format for the model.
+## Limitations
 
-##  Contact
-
-Created by **Hitesh Kanagala Rajendra Prasad**.
-
-* [LinkedIn Profile](https://www.linkedin.com/in/hitesh-k-r-544973111/)
-* [GitHub Profile](https://github.com/hitesh175)
-
-```
-
-```
+This is a demonstration, with no committed dependency lockfile or independent temporal evaluation. The model retrains when the app script reruns. A random split and integer city encodings limit conclusions about future shipments or unseen locations. Risk messages use fixed prediction thresholds rather than calibrated probabilities.
