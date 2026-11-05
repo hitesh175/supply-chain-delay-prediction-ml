@@ -68,10 +68,10 @@ function renderQueue() {
     const button = node("button",id,"pick");
     button.setAttribute("aria-pressed",String(id === selected));
     button.onclick = () => { selected = id; feedback("save-status",""); renderQueue(); $("review-title").focus(); };
-    first.append(button,node("small",origin + " → " + destination));
+    first.append(button,node("small",origin + " → " + destination),node("small",status,"mobile-status"));
     const priorityCell = node("td");
     priorityCell.append(node("span",rank,"tag " + (rank === "Act now" ? "urgent" : rank === "Watch" ? "watch" : "")));
-    tr.append(first,node("td",timing(days)),priorityCell,node("td",status));
+    tr.append(first,node("td",timing(days)),priorityCell,node("td",status,"shipment-status"));
     $("rows").append(tr);
   }
   if (!visible.length) {
@@ -125,6 +125,7 @@ async function loadBatch(read, label) {
     }
     $("batch-label").textContent = label;
     $("workspace").hidden = false;
+    $("empty-queue").hidden = true;
     feedback("save-status","");
     renderQueue();
     feedback("load-status",queue.length + " shipments scored.");
