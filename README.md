@@ -1,50 +1,33 @@
-# Supply Chain Delivery Delay Prediction
+# Relay | Shipment operations
 
-A Streamlit prototype combining shipment analytics with a Random Forest regression model.
+Relay ranks shipments by expected delay so you can decide which to review first. Open **Shipment triage** and choose **Try sample shipments**, or upload a CSV with the columns shipment_id, origin, destination, and shipping_mode. Review the queue, record decisions, and export a CSV before closing the page.
 
-The app estimates delivery delay in days and groups predictions into on-time/early, minor-delay, and significant-delay messages.
-
-![Dashboard example](Screenshot%202026-01-30%20120900.png)
-
-## How it works
-
-- Target: actual shipping days minus scheduled shipping days.
-- Features: encoded customer city, order city, and shipping mode.
-- Evaluation: an 80/20 random split with a fixed seed.
-- Metric: mean absolute error (MAE), measured in days.
-- Interface: historical charts, regional comparisons, and interactive predictions.
-
-The source labels Customer City as “Origin” and Order City as “Destination”. These fields require domain validation before treating them as physical shipment endpoints. MAE reports prediction error in days; lower values are better.
+**Historical analytics** summarizes training data. **Check one shipment** runs the same predictor for one route and shipping mode.
 
 ## Run locally
 
-```bash
-python -m venv .venv
-python -m pip install -r requirements.txt
-python -m streamlit run app.py
-```
+From the repository root, serve the browser files and open http://localhost:8000.
 
-Activate the environment before installation. The loader finds `DataCoSupplyChainDataset.csv` or the included `compressed_data.csv.gz` beside the application. When both exist, it prefers the uncompressed CSV. It validates required columns, removes invalid shipping-day rows, and reports actionable input errors.
+    python -m http.server 8000 --directory web/dist
 
-A dataset reference is linked in the [DataCo dataset listing](https://www.kaggle.com/datasets/shashwatwork/dataco-smart-supply-chain-for-big-data-analysis). Follow its applicable access and usage terms.
+Python serves the files during local development. The browser downloads the pre-trained model on the first prediction and scores shipment data locally. No model training or Python server is needed on Vercel.
 
-Both plain and gzip-compressed CSV inputs are read directly. Dataset paths are resolved relative to the application rather than the launch directory.
+## Deploy a Vercel preview
 
-## Project material
+Import the GitHub repository in Vercel. Select the relay-browser-vercel branch for a preview. Leave the root directory at the repository root. The checked-in Vercel configuration serves web/dist without a build command. Use Vercel Authentication if access should be restricted.
 
-- [app.py](app.py): cached application loading, charts, and predictions.
-- [supply_data.py](supply_data.py): file discovery, schema validation, and model fitting.
-- [output.pdf](output.pdf) and [Output2.pdf](Output2.pdf): saved output documents.
-- Repository screenshots: interface examples.
+## Refresh the trained model
 
-## Limitations
+Install the Python dependencies and run these commands from the repository root.
 
-This is a demonstration, with no committed dependency lockfile or independent temporal evaluation. Dataset loading and model fitting are cached across interface interactions. Changes to the selected file's size or modification time invalidate its data cache; changed input data invalidates the model cache. A random split and integer city encodings limit conclusions about future shipments or unseen locations. Risk messages use fixed prediction thresholds rather than calibrated probabilities.
+    python -m pip install -r requirements.txt
+    python web/export_model.py . web/dist
+    python -m unittest discover -s tests -v
 
-## Regression checks
+The exporter reads compressed_data.csv.gz or DataCoSupplyChainDataset.csv and writes the pre-trained forest and summary statistics. It also creates a local parity fixture at web/parity.json. The dataset and Python training code are outside the served directory. See the [DataCo dataset listing](https://www.kaggle.com/datasets/shashwatwork/dataco-smart-supply-chain-for-big-data-analysis) for usage terms.
 
-```bash
-python -m unittest discover -s tests -v
-```
+The model estimates actual shipping days minus scheduled shipping days. Positive values indicate expected delay. Relay labels forecasts over two days late **Act now**, positive forecasts up to two days late **Watch**, and forecasts at or below zero **Monitor**.
 
-Tests use synthetic shipments to check compressed input, schema errors, invalid shipping durations, and deterministic model fitting. They do not establish predictive accuracy on operational shipments.
+The source labels Customer City as origin and Order City as destination. Validate that these fields represent physical shipment endpoints before using the model operationally. The model uses a random holdout split and integer city encodings. Evaluate it on representative future shipments before relying on it for operational decisions.
+
+Historical reports are available in [output.pdf](output.pdf) and [Output2.pdf](Output2.pdf).

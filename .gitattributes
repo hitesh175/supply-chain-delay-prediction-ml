@@ -1,1 +1,2 @@
 *.csv filter=lfs diff=lfs merge=lfs -text
+web/dist/sample-shipments.csv -filter -diff -merge text
