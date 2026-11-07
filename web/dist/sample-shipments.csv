@@ -1,0 +1,9 @@
+shipment_id,origin,destination,shipping_mode
+DEMO-001,Caguas,New York City,Standard Class
+DEMO-002,Caguas,Santo Domingo,Standard Class
+DEMO-003,Caguas,Managua,Second Class
+DEMO-004,Caguas,Santo Domingo,Second Class
+DEMO-005,Caguas,New York City,First Class
+DEMO-006,Caguas,Santo Domingo,First Class
+DEMO-007,Caguas,Santo Domingo,Same Day
+DEMO-008,Caguas,San Francisco,Same Day

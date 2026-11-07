@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Relay | Shipment operations</title><meta name="description" content="Rank shipments by predicted delay and record your next action.">
+<link rel="stylesheet" href="style.css"><script type="module" src="app.js"></script></head>
+<body>
+<header><div class="masthead"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 24h10L27 8M5 15h7l5-7m3 0h7v7" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg><strong>Relay</strong><span>Shipment operations</span></div>
+<nav aria-label="Workspace"><a href="#triage">Shipment triage</a><a href="#history">Historical analytics</a><a href="#forecast">Check one shipment</a></nav></header>
+<main>
+<section id="triage" class="page">
+<h1>Shipment triage</h1><p class="intro">Find which shipments to check first. Relay ranks your batch by predicted delay and lets you record your next action.</p>
+<section class="load"><div class="intake"><h2>Load shipments</h2><form id="upload-form"><label for="file" class="file-label">Shipment CSV</label><div class="load-actions"><input id="file" type="file" accept=".csv,text/csv" required><button class="primary" id="score">Score uploaded shipments</button><button type="button" id="sample">Try sample shipments</button><a href="sample-shipments.csv" download="shipments.csv">Download CSV template</a></div></form><p class="muted">Use the template for shipment IDs, origins, destinations, and shipping modes. A different batch replaces the current queue.</p><p id="load-status" role="status" class="feedback"></p></div><figure class="route-flow"><svg viewBox="0 0 264 86" aria-hidden="true"><path class="route-grid" d="M16 22h232M16 43h232M16 64h232M32 14v58M82 14v58M132 14v58M182 14v58M232 14v58"/><path class="route-line" d="M32 58h46l18-30h62l18 30h56"/><circle cx="32" cy="58" r="5"/><circle class="checkpoint" cx="132" cy="28" r="6"/><circle cx="232" cy="58" r="5"/></svg><figcaption><span>Load batch</span><span>Rank delays</span><span>Review</span></figcaption></figure></section><div id="empty-queue" class="empty-queue"><strong>Your queue is empty</strong><p>Score a CSV or try the eight sample shipments to see which routes need attention.</p></div>
+<div id="workspace" hidden>
+<div class="queue-heading"><div><h2>Intervention queue</h2><p id="batch-label" class="muted"></p></div><button id="export">Export results and decisions</button></div>
+<div id="totals" class="totals"></div>
+<div class="work">
+<section aria-label="Ranked queue"><div class="controls"><label><input id="resolved" type="checkbox"> Include resolved shipments</label><p class="muted">Act now · over 2 days late<br>Watch · up to 2 days late<br>Monitor · on time or early</p></div>
+<div class="scroll"><table><thead><tr><th>Shipment</th><th>Predicted timing</th><th>Priority</th><th>Your status</th></tr></thead><tbody id="rows"></tbody></table></div></section>
+<section class="review"><h2>Shipment review</h2><div id="detail"></div><p id="save-status" class="feedback" role="status"></p></section>
+</div></div>
+</section>
+<section id="history" class="page" hidden><h1>Historical analytics</h1><p class="intro">See where delays occurred in the records used to train the predictor.</p><p id="history-status" role="status"></p><div class="totals" id="history-totals"></div><div id="charts"></div></section>
+<section id="forecast" class="page" hidden><h1>Check one shipment</h1><p class="intro">Estimate how early or late a shipment may be based on its route and shipping mode.</p><form id="forecast-form" class="forecast-form">
+<label>Origin city<input id="origin" list="origins" required><datalist id="origins"></datalist></label>
+<label>Destination city<input id="destination" list="destinations" required><datalist id="destinations"></datalist></label>
+<label>Shipping mode<select id="mode" required></select></label><button class="primary" id="predict">Predict delay</button></form><p id="forecast-status" class="feedback forecast-result" role="status"></p></section>
+<footer>Shipment files are scored in your browser. Export your decisions to keep a copy.</footer>
+</main>
+<template id="review-template"><h3></h3><p class="route muted"></p><dl><dt>Model estimate</dt><dd class="estimate"></dd><dt>Suggested next action</dt><dd class="action"></dd></dl><form class="decision"><label>Your status<select name="status"></select></label><label>Decision note<textarea name="note" maxlength="2000" placeholder="What will you do, and when will you check back?"></textarea></label><button class="primary">Save decision</button></form></template>
+</body></html>
