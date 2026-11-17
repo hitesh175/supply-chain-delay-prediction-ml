@@ -57,9 +57,41 @@ function timing(days) {
   if (days === 0) return "On time";
   return (rounded === "0.00" ? "<0.01" : rounded) + " d " + (days > 0 ? "late" : "early");
 }
-function spread(low, high) {
-  const part = value => (value > 0 ? "+" : value < 0 ? "−" : "") + Math.abs(value).toFixed(1);
-  return "Likely range " + part(low) + " to " + part(high) + " days (+ is late)";
+function dayPart(value) {
+  const rounded = Math.round(Math.abs(value) * 10) / 10;
+  return rounded === 0 ? "on time" : rounded + " d " + (value > 0 ? "late" : "early");
+}
+function rangeText(low, high) { return dayPart(low) + " to " + dayPart(high); }
+const SVG = "http://www.w3.org/2000/svg";
+function svg(tag, attrs = {}, parent) {
+  const element = document.createElementNS(SVG, tag);
+  for (const [name, value] of Object.entries(attrs)) element.setAttribute(name, value);
+  parent?.append(element);
+  return element;
+}
+const priorityClass = rank => rank === "Act now" ? "p-act" : rank === "Watch" ? "p-watch" : "p-monitor";
+// Number line from 3 days early to 6 days late: the dot is the forecast, the bar is the likely range,
+// the dashed line is where "Act now" starts. Text next to it always says the same thing in words.
+function gauge(shipment, large = false) {
+  const [min, max] = [-3, 6], width = large ? 320 : 220, pad = 8, height = large ? 52 : 22, mid = large ? 18 : 11;
+  const x = value => pad + (Math.min(max, Math.max(min, value)) - min) / (max - min) * (width - pad * 2);
+  const root = svg("svg", {viewBox: `0 0 ${width} ${height}`, class: "gauge " + priorityClass(shipment.priority), role: "img",
+    "aria-label": `${timing(shipment.days)}, likely range ${shipment.low.toFixed(1)} to ${shipment.high.toFixed(1)} days`});
+  svg("line", {x1: pad, x2: width - pad, y1: mid, y2: mid, class: "track"}, root);
+  svg("line", {x1: x(0), x2: x(0), y1: mid - 6, y2: mid + 6, class: "zero"}, root);
+  svg("line", {x1: x(2), x2: x(2), y1: mid - 9, y2: mid + 9, class: "limit"}, root);
+  const left = x(shipment.low), right = x(shipment.high);
+  svg("rect", {x: left, y: mid - 5, width: Math.max(3, right - left), height: 10, rx: 5, class: "span"}, root);
+  svg("circle", {cx: x(shipment.days), cy: mid, r: large ? 7 : 5.5, class: "mark"}, root);
+  if (large) {
+    for (const [value, label] of [[-2, "2 early"], [0, "on time"], [4, "4 late"], [6, "6+ late"]]) {
+      const text = svg("text", {x: x(value), y: 46, "text-anchor": value === 6 ? "end" : "middle"}, root);
+      text.textContent = label;
+    }
+    const limit = svg("text", {x: x(2), y: 46, "text-anchor": "middle", class: "limit-label"}, root);
+    limit.textContent = "2 late";
+  }
+  return root;
 }
 function totals(id, items) {
   $(id).replaceChildren(...items.map(([label, value]) => {
@@ -68,23 +100,50 @@ function totals(id, items) {
     return span;
   }));
 }
+function renderMix(open, resolved) {
+  const counts = {"Act now": 0, "Watch": 0, "Monitor": 0};
+  for (const row of open) counts[row.priority]++;
+  const wrap = node("div", undefined, "mix"), bar = node("div", undefined, "mix-bar");
+  bar.setAttribute("role", "img");
+  bar.setAttribute("aria-label", `${open.length} open shipments: ${counts["Act now"]} act now, ${counts.Watch} watch, ${counts.Monitor} monitor`);
+  for (const [rank, count] of Object.entries(counts)) if (count) {
+    const part = node("i", undefined, priorityClass(rank));
+    part.style.flex = String(count);
+    bar.append(part);
+  }
+  const legend = node("div", undefined, "mix-legend");
+  for (const [rank, count] of Object.entries(counts)) {
+    const item = node("span");
+    item.append(node("span", undefined, "dot " + priorityClass(rank)), node("b", String(count)), rank);
+    legend.append(item);
+  }
+  const done = node("span"); done.append(node("b", String(resolved)), "resolved");
+  legend.append(done);
+  wrap.append(bar, legend);
+  $("totals").replaceChildren(wrap);
+}
 function renderQueue() {
+  $("triage").classList.add("has-queue");
   const open = queue.filter(row => row.status !== "Resolved");
   const visible = $("resolved").checked ? queue : open;
   if (!visible.some(row => row.id === selected)) selected = visible[0]?.id;
-  totals("totals",[["need attention now",open.filter(row => row.priority === "Act now").length],["open",open.length],["resolved",queue.length-open.length]]);
+  renderMix(open, queue.length - open.length);
   $("rows").replaceChildren();
   for (const shipment of visible) {
     const {id,origin,destination,days,priority:rank,status} = shipment;
-    const tr = node("tr",undefined,id === selected ? "active" : "");
+    const tr = node("tr",undefined,priorityClass(rank) + (id === selected ? " active" : ""));
     const first = node("td");
     const button = node("button",id,"pick");
     button.setAttribute("aria-pressed",String(id === selected));
     button.onclick = () => { selected = id; feedback("save-status",""); renderQueue(); $("review-title").focus(); };
     first.append(button,node("small",origin + " → " + destination),node("small",status,"mobile-status"));
     const priorityCell = node("td");
-    priorityCell.append(node("span",rank,"tag " + (rank === "Act now" ? "urgent" : rank === "Watch" ? "watch" : "")));
-    tr.append(first,node("td",timing(days)),priorityCell,node("td",status,"shipment-status"));
+    priorityCell.append(node("span",rank,"tag " + priorityClass(rank)));
+    const forecastCell = node("td"), fc = node("div",undefined,"fc"), text = node("span",timing(days),"fc-text");
+    if (shipment.fallback) { const chip = node("span","mode average","chip"); chip.title = "This route was not in the training data, so the shipping mode's historical average is used."; text.append(chip); }
+    fc.append(text,gauge(shipment));
+    forecastCell.append(fc);
+    tr.append(first,forecastCell,priorityCell,node("td",status,"shipment-status"));
     $("rows").append(tr);
   }
   if (!visible.length) {
@@ -108,9 +167,14 @@ function renderDetail(shipment) {
   title.tabIndex = -1;
   title.textContent = shipment.id;
   fragment.querySelector(".route").textContent = shipment.origin + " → " + shipment.destination + " / " + shipment.mode;
-  fragment.querySelector(".estimate").textContent = timing(shipment.days) + " · " + shipment.priority
-    + (shipment.fallback ? " · shipping-mode average (route not in training data)" : "");
-  fragment.querySelector(".range").textContent = spread(shipment.low, shipment.high);
+  const estimate = fragment.querySelector(".estimate");
+  estimate.textContent = timing(shipment.days) + " (" + shipment.priority + ")";
+  estimate.closest("dl").classList.add(priorityClass(shipment.priority));
+  fragment.querySelector(".gauge-slot").append(gauge(shipment,true));
+  fragment.querySelector(".range").textContent = rangeText(shipment.low, shipment.high);
+  fragment.querySelector(".basis").textContent = shipment.fallback
+    ? "The shipping mode's historical average. This route was not in the training data."
+    : "This route's history in the training data.";
   fragment.querySelector(".action").textContent = actions[shipment.priority];
   const form = fragment.querySelector("form");
   const status = form.elements.namedItem("status"), note = form.elements.namedItem("note");
@@ -166,12 +230,25 @@ $("sample").onclick = () => loadBatch(async () => {
   return response.text();
 },"Sample batch");
 $("resolved").onchange = renderQueue;
+$("file").onchange = () => { $("file-name").textContent = $("file").files[0]?.name ?? "Choose a shipment CSV"; };
+for (const type of ["dragenter","dragover"]) $("drop").addEventListener(type, event => { event.preventDefault(); $("drop").classList.add("over"); });
+for (const type of ["dragleave","drop"]) $("drop").addEventListener(type, () => $("drop").classList.remove("over"));
+$("drop").addEventListener("drop", event => {
+  event.preventDefault();
+  const file = event.dataTransfer?.files?.[0];
+  if (!file) return;
+  const transfer = new DataTransfer();
+  transfer.items.add(file);
+  $("file").files = transfer.files;
+  $("file").dispatchEvent(new Event("change"));
+});
 $("clear").onclick = () => {
   if (!confirm("Remove the saved queue and all decisions from this browser? Export first if you want a copy.")) return;
   try { localStorage.removeItem(STORE); } catch { /* ignore */ }
   queue = []; selected = batchText = undefined;
   $("workspace").hidden = true;
   $("empty-queue").hidden = false;
+  $("triage").classList.remove("has-queue");
   feedback("load-status","Saved queue removed.");
 };
 $("export").onclick = () => {
@@ -192,7 +269,16 @@ function historyTable(title, headings, rows, open = false) {
   head.append(header);
   for (const values of rows) {
     const row = node("tr");
-    row.append(...values.map(value => node("td",value)));
+    row.append(...values.map(value => {
+      const cell = node("td");
+      if (value && typeof value === "object") {
+        const wrap = node("div", undefined, "bar-cell"), fill = node("i");
+        fill.style.width = Math.round(value.bar * 120) + "px";
+        wrap.append(fill, value.text);
+        cell.append(wrap);
+      } else cell.textContent = value;
+      return cell;
+    }));
     body.append(row);
   }
   table.append(head,body);
@@ -207,10 +293,23 @@ async function showHistory() {
     const meta = await info();
     const share = value => (value * 100).toFixed(1) + "%";
     const pct = value => value == null ? "n/a" : Math.round(value * 100) + "%";
-    totals("history-totals",[["historical order lines",meta.orders.toLocaleString()],["average delay",meta.mean.toFixed(2) + " d"],["average error on unseen orders",meta.mae.toFixed(2) + " d"],["error of a shipping-mode-only guess",meta.baseline_mae.toFixed(2) + " d"],["“Act now” precision",pct(meta.act_precision)],["“Act now” recall",pct(meta.act_recall)],["shipments flagged “Act now”",share(meta.act_flagged_share)],["shipments truly over 2 days late",share(meta.act_base_rate)]]);
-    $("history-note").textContent = "Measured on " + meta.test_orders.toLocaleString() + " held-out orders the model never saw. Route history adds little over the shipping mode alone for average error, so treat the ranking as a prompt to check, not a promise.";
+    const top = Math.max(meta.mae, meta.baseline_mae) * 1.15;
+    const bars = [["Relay forecast", meta.mae, ""], ["Guessing each shipping mode's typical delay", meta.baseline_mae, " base"]].map(([label, value, extra]) => {
+      const row = node("div", undefined, "rel-row" + extra), bar = node("div", undefined, "rel-bar"), fill = node("i");
+      fill.style.width = (value / top * 100) + "%";
+      bar.append(fill);
+      row.append(node("span", label), bar, node("b", value.toFixed(2) + " d"));
+      return row;
+    });
+    const reliability = node("div", undefined, "reliability");
+    reliability.append(node("h2", "Average error on orders the model never saw"), ...bars,
+      node("p", `Measured on ${meta.test_orders.toLocaleString()} held-out orders. Route history adds little over the shipping mode for average error, so use the ranking to decide what to check first, not as a delivery promise. Flagging ${share(meta.act_flagged_share)} of shipments as Act now finds ${pct(meta.act_recall)} of the ones that really ran over 2 days late (${share(meta.act_base_rate)} of all shipments), and ${pct(meta.act_precision)} of the flagged ones were late.`, "rel-note"));
+    $("reliability").replaceChildren(reliability);
+    totals("history-totals",[["order lines in the training records",meta.orders.toLocaleString()],["average delay",meta.mean.toFixed(2) + " d"]]);
+    $("history-note").textContent = "";
     const days = value => { const text = value.toFixed(2); return text === "-0.00" ? "0.00" : text; };
-    const averages = values => values.map(([label,value,count]) => [label,days(value),count.toLocaleString()]);
+    const widest = Math.max(...meta.modes.concat(meta.destinations).map(([, value]) => Math.abs(value)), 1);
+    const averages = values => values.map(([label,value,count]) => [label,{bar: Math.abs(value) / widest, text: days(value)},count.toLocaleString()]);
     $("charts").replaceChildren(
       historyTable("Average delay by shipping mode",["Shipping mode","Average delay (days)","Order lines"],averages(meta.modes),true),
       historyTable("Destinations with the highest average delays (at least 50 order lines)",["Destination","Average delay (days)","Order lines"],averages(meta.destinations),true),
@@ -238,8 +337,12 @@ $("forecast-form").onsubmit = async event => {
   try {
     const estimate = await estimator();
     const {days,fallback,low,high} = estimate(["origin","destination","mode"].map(id => $(id).value.trim()));
-    feedback("forecast-status",timing(days) + " · " + priority(days) + (fallback ? " · shipping-mode average (route not in training data)" : "") + " · " + spread(low,high));
-  } catch (error) { feedback("forecast-status",error.message,true); }
+    const shipment = {days, low, high, priority: priority(days)};
+    feedback("forecast-status",timing(days) + ", " + shipment.priority);
+    const note = node("p", "Likely range: " + rangeText(low, high) + ". " + (fallback ? "This route was not in the training data, so this is the shipping mode's historical average." : "Based on this route's history."), "forecast-sub");
+    $("forecast-gauge").replaceChildren(note, gauge(shipment, true));
+    $("forecast-status").className = "feedback forecast-result " + priorityClass(shipment.priority);
+  } catch (error) { $("forecast-gauge").replaceChildren(); feedback("forecast-status",error.message,true); }
   finally { $("predict").disabled = false; }
 };
 function navigate() {

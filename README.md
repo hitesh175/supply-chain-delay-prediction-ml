@@ -8,7 +8,7 @@ Relay ranks a batch of shipments by expected delay so a logistics team knows whi
 
 ## What it does
 
-- **Shipment triage:** upload a CSV (`shipment_id, origin, destination, shipping_mode`) or try the sample. Shipments are ranked and labelled **Act now** (forecast over 2 days late), **Watch** (late by up to 2 days) or **Monitor**.
+- **Shipment triage:** upload or drop a CSV (`shipment_id, origin, destination, shipping_mode`) or try the sample. Each row shows the forecast as a dot on a number line with its likely range, so you can see how sure the model is. Shipments are ranked and labelled **Act now** (forecast over 2 days late), **Watch** (late by up to 2 days) or **Monitor**.
 - **Decisions:** record a status and note per shipment. The queue and decisions are saved in the browser and can be exported to CSV with the forecast, a likely range and whether the route was in the training data.
 - **Upload checks:** every bad row is reported with its spreadsheet row number before anything is scored.
 - **Unseen routes:** a route missing from the training data gets its shipping mode's historical average and is marked as such.
@@ -52,4 +52,4 @@ Import the repository in Vercel and leave the root directory at the repository r
 
 ## Data
 
-[DataCo Smart Supply Chain](https://www.kaggle.com/datasets/shashwatwork/dataco-smart-supply-chain-for-big-data-analysis) (180,519 order lines, 65,752 orders), supplied as `compressed_data.csv.gz`. See the dataset listing for usage terms. Historical reports from the first version of the project are in [output.pdf](output.pdf) and [Output2.pdf](Output2.pdf).
+[DataCo Smart Supply Chain](https://www.kaggle.com/datasets/shashwatwork/dataco-smart-supply-chain-for-big-data-analysis) (180,519 order lines, 65,752 orders), supplied as `compressed_data.csv.gz`. See the dataset listing for usage terms. The interface font is Archivo (SIL Open Font License, `web/dist/fonts/OFL.txt`), served from the app itself so no request leaves the browser. Historical reports from the first version of the project are in [output.pdf](output.pdf) and [Output2.pdf](Output2.pdf).
